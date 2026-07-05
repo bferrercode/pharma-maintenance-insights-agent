@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insights de Mantenimiento — Planta Pharma</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root { color-scheme: light; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 32px;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; margin-bottom: 24px; }
+  .kpis { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .kpi {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 16px 24px;
+    min-width: 180px;
+    flex: 1;
+  }
+  .kpi .value { font-size: 2rem; font-weight: 700; }
+  .kpi.alert .value { color: #f87171; }
+  .kpi .label { color: #94a3b8; font-size: 0.85rem; }
+  .charts { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+  .chart-card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+    flex: 1;
+    min-width: 320px;
+  }
+  .narrative {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .narrative h2 { margin-top: 0; font-size: 1.1rem; }
+  .narrative ul { padding-left: 20px; }
+  .security-note {
+    color: #fbbf24;
+    font-size: 0.85rem;
+    margin-top: 12px;
+  }
+  #status { color: #94a3b8; }
+</style>
+</head>
+<body>
+  <h1>Insights de Mantenimiento — Planta Pharma</h1>
+  <div class="subtitle">Datos simulados (esquema equivalente a un extracto de SAP PM)</div>
+
+  <div id="status">Cargando informe semanal...</div>
+  <div id="content" style="display:none">
+    <div class="kpis">
+      <div class="kpi">
+        <div class="value" id="kpi-horas">-</div>
+        <div class="label">Horas de parada totales</div>
+      </div>
+      <div class="kpi">
+        <div class="value" id="kpi-coste">-</div>
+        <div class="label">Coste total (€)</div>
+      </div>
+      <div class="kpi alert">
+        <div class="value" id="kpi-gmp">-</div>
+        <div class="label">Órdenes GMP-críticas vencidas</div>
+      </div>
+      <div class="kpi">
+        <div class="value" id="kpi-total">-</div>
+        <div class="label">Órdenes totales</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card"><canvas id="chart-equipo"></canvas></div>
+      <div class="chart-card"><canvas id="chart-tipo"></canvas></div>
+    </div>
+
+    <div class="narrative">
+      <h2>Resumen semanal (generado por el agente)</h2>
+      <p id="narrativa-resumen"></p>
+      <ul id="narrativa-recomendaciones"></ul>
+      <div class="security-note" id="security-note"></div>
+    </div>
+  </div>
+
+<script>
+async function loadInsights() {
+  const res = await fetch("/api/insights/weekly");
+  if (!res.ok) {
+    document.getElementById("status").textContent = "Error cargando el informe: " + res.status;
+    return;
+  }
+  const data = await res.json();
+  render(data);
+}
+
+function render(data) {
+  document.getElementById("status").style.display = "none";
+  document.getElementById("content").style.display = "block";
+
+  const m = data.metrics;
+  document.getElementById("kpi-horas").textContent = m.horas_parada_totales.toFixed(1) + " h";
+  document.getElementById("kpi-coste").textContent = m.coste_total.toLocaleString("es-ES", {maximumFractionDigits: 0});
+  document.getElementById("kpi-gmp").textContent = m.ordenes_gmp_vencidas;
+  document.getElementById("kpi-total").textContent = m.total_ordenes;
+
+  new Chart(document.getElementById("chart-equipo"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(m.horas_parada_por_equipo),
+      datasets: [{ label: "Horas de parada", data: Object.values(m.horas_parada_por_equipo), backgroundColor: "#38bdf8" }]
+    },
+    options: { plugins: { title: { display: true, text: "Horas de parada por equipo", color: "#e2e8f0" } },
+      scales: { x: { ticks: { color: "#94a3b8" } }, y: { ticks: { color: "#94a3b8" } } },
+      plugins: { legend: { display: false } } }
+  });
+
+  new Chart(document.getElementById("chart-tipo"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(m.coste_por_tipo),
+      datasets: [{ label: "Coste (€)", data: Object.values(m.coste_por_tipo), backgroundColor: "#a78bfa" }]
+    },
+    options: { plugins: { title: { display: true, text: "Coste por tipo de intervención", color: "#e2e8f0" }, legend: { display: false } },
+      scales: { x: { ticks: { color: "#94a3b8" } }, y: { ticks: { color: "#94a3b8" } } } }
+  });
+
+  document.getElementById("narrativa-resumen").textContent = data.narrativa.resumen;
+  const list = document.getElementById("narrativa-recomendaciones");
+  data.narrativa.recomendaciones.forEach(r => {
+    const li = document.createElement("li");
+    li.textContent = r;
+    list.appendChild(li);
+  });
+
+  const flagged = data.notas_filtradas_por_seguridad;
+  if (flagged.length > 0) {
+    document.getElementById("security-note").textContent =
+      "🛡️ Seguridad: se filtraron notas sospechosas de inyección de instrucciones en " +
+      flagged.length + " orden(es): " + flagged.join(", ");
+  }
+}
+
+loadInsights();
+</script>
+</body>
+</html>
