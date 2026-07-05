@@ -30,7 +30,7 @@ Single ADK `Workflow` (`app/agent.py`):
 
 ```
 START → fetch_workorders → screen_notes → compute_metrics → generate_narrative → END
-        (Sheets API)       (security)      (pure Python)     (Gemini LLM)
+        (reads .xlsx)      (security)      (pure Python)     (Gemini LLM)
 ```
 
 1. **fetch_workorders** — reads the mock `.xlsx` work-order export with
