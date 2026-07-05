@@ -20,10 +20,9 @@ one-page dashboard.
 Demo.xlsx`) with the same column shape a real SAP PM work-order export would
 have — in practice, a maintenance planner exporting a work-order list out of
 SAP PM often ends up with exactly this kind of Excel file. No real
-plant/company system or data is used anywhere in this project. In a production
-setup, `app/workorders_reader.py` would be replaced by a call to SAP PM's
-OData service (or an IW38/IW68 extract) — nothing else in the agent would
-need to change, since every other node only depends on the `WorkOrder` shape.
+plant/company system or data is used anywhere in this project.
+`app/workorders_reader.py` is the only place in the agent that talks to the
+data source.
 
 ## Architecture
 
@@ -94,6 +93,6 @@ possible integration:
 - **Data source.** It reads a mock SAP-PM-shaped Excel export rather than a
   live SAP PM connection, since the interesting part to demonstrate is the
   insight pipeline, not an ERP integration. `app/workorders_reader.py` is the
-  single, isolated seam that a real SAP PM OData integration would replace.
+  only place in the agent that talks to the data source.
 - **Tooling.** The agent's reasoning layer is entirely ADK-native (no MCP
   server or Antigravity integration in this build).
